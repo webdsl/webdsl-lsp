@@ -1,20 +1,20 @@
 package org.webdsl.lsp
 
+import org.eclipse.lsp4j.CompletionOptions
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
-import org.eclipse.lsp4j.services.LanguageClient
-import org.eclipse.lsp4j.services.LanguageServer
-import org.eclipse.lsp4j.services.TextDocumentService
-import org.eclipse.lsp4j.services.WorkspaceService
 import org.eclipse.lsp4j.ServerCapabilities
 import org.eclipse.lsp4j.ServerInfo
 import org.eclipse.lsp4j.TextDocumentSyncKind
 import org.eclipse.lsp4j.jsonrpc.messages.Either
-import org.eclipse.lsp4j.CompletionOptions
+import org.eclipse.lsp4j.services.LanguageClient
+import org.eclipse.lsp4j.services.LanguageServer
+import org.eclipse.lsp4j.services.TextDocumentService
+import org.eclipse.lsp4j.services.WorkspaceService
 import java.util.concurrent.CompletableFuture
 
 class WebDSLLanguageServer(val textDocumentService: TextDocumentService, val workspaceService: WorkspaceService) : LanguageServer {
-  var client: LanguageClient? = null;
+  var client: LanguageClient? = null
 
   override fun initialize(params: InitializeParams): CompletableFuture<InitializeResult> {
     val capabilities = ServerCapabilities().apply {

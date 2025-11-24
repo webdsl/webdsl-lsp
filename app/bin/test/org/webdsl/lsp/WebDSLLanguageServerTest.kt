@@ -3,8 +3,4 @@
  */
 package org.webdsl.lsp
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-
-class WebDSLLanguageServerTest {
-}
+class WebDSLLanguageServerTest
