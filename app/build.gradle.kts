@@ -13,11 +13,33 @@ plugins {
     application
 
     alias(libs.plugins.spotless)
+    alias(libs.plugins.download)
 }
 
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
+}
+
+val downloadWebdsl by tasks.registering(de.undercouch.gradle.tasks.download.Download::class) {
+  src("https://update.webdsl.org/compiler/webdsl.zip")
+  dest(layout.buildDirectory.file("webdsl.zip"))
+}
+
+val webdslJarFiles = listOf("strategoxt.jar", "webdsl.jar").map { "webdsl/bin/$it" }
+
+val downloadAndExtractWebdsl = tasks.register<Copy>("downloadAndExtractWebdsl") {
+  if (!downloadWebdsl.get().dest.exists()) {
+    dependsOn(downloadWebdsl)
+  }
+
+  from(zipTree(downloadWebdsl.get().dest))
+  into(layout.buildDirectory)
+  include(*webdslJarFiles.toTypedArray())
+}
+
+tasks.register<Delete>("cleanWebdsl") {
+  delete(layout.buildDirectory.dir("webdsl"), downloadWebdsl.get().dest)
 }
 
 dependencies {
@@ -31,6 +53,18 @@ dependencies {
 
     implementation(libs.lsp4j)
     implementation(libs.lsp4j.jsonrpc)
+
+    implementation(files(
+      *webdslJarFiles.map { layout.buildDirectory.file(it) }.toTypedArray()
+    ))
+}
+
+tasks.named("compileJava") {
+  dependsOn(downloadAndExtractWebdsl)
+}
+
+tasks.named("compileKotlin") {
+  dependsOn(downloadAndExtractWebdsl)
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
