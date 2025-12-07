@@ -14,6 +14,7 @@ plugins {
 
     alias(libs.plugins.spotless)
     alias(libs.plugins.download)
+    alias(libs.plugins.shadow)
 }
 
 repositories {
@@ -65,6 +66,12 @@ tasks.named("compileJava") {
 
 tasks.named("compileKotlin") {
   dependsOn(downloadAndExtractWebdsl)
+}
+
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+  archiveBaseName = "webdsl-lsp"
+  archiveClassifier = ""
+  archiveVersion = "1.0.0"
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
