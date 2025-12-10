@@ -1,12 +1,21 @@
 package org.webdsl.lsp
 
-import WebDSLWorkspaceService
 import org.eclipse.lsp4j.launch.LSPLauncher
+import java.net.ServerSocket
 
 fun main() {
-  var myServer = WebDSLLanguageServer(WebDSLTextDocumentService(), WebDSLWorkspaceService())
-  val l = LSPLauncher.createServerLauncher(myServer, System.`in`, System.out)
-  val startListening = l.startListening()
-  myServer.setRemoteProxy(l.getRemoteProxy())
-  startListening.get()
+  val port = 1337
+  val s = ServerSocket(port)
+  println("WebDSL language server launcher has been started and is listening on port $port!")
+
+  while (true) {
+    val client = s.accept()
+    Thread {
+      var myServer = WebDSLLanguageServer()
+      val l = LSPLauncher.createServerLauncher(myServer, client.inputStream, client.outputStream)
+      val startListening = l.startListening()
+      myServer.setRemoteProxy(l.getRemoteProxy())
+      startListening.get()
+    }.start()
+  }
 }

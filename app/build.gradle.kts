@@ -28,6 +28,7 @@ val downloadWebdsl by tasks.registering(de.undercouch.gradle.tasks.download.Down
 }
 
 val webdslJarFiles = listOf("strategoxt.jar", "webdsl.jar").map { "webdsl/bin/$it" }
+val webdslResources = listOf("webdsl/share/webdsl/template-webdsl/built-in.app")
 
 val downloadAndExtractWebdsl = tasks.register<Copy>("downloadAndExtractWebdsl") {
   if (!downloadWebdsl.get().dest.exists()) {
@@ -36,8 +37,10 @@ val downloadAndExtractWebdsl = tasks.register<Copy>("downloadAndExtractWebdsl") 
 
   from(zipTree(downloadWebdsl.get().dest))
   into(layout.buildDirectory)
-  include(*webdslJarFiles.toTypedArray())
+  include(*webdslJarFiles.toTypedArray(), *webdslResources.toTypedArray())
 }
+
+sourceSets["main"].resources.srcDir(layout.buildDirectory.file("webdsl/share"))
 
 tasks.register<Delete>("cleanWebdsl") {
   delete(layout.buildDirectory.dir("webdsl"), downloadWebdsl.get().dest)
@@ -65,6 +68,10 @@ tasks.named("compileJava") {
 }
 
 tasks.named("compileKotlin") {
+  dependsOn(downloadAndExtractWebdsl)
+}
+
+tasks.named("processResources") {
   dependsOn(downloadAndExtractWebdsl)
 }
 

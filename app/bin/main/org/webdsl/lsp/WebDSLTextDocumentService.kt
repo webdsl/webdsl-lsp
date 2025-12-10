@@ -24,6 +24,7 @@ import org.eclipse.lsp4j.Hover
 import org.eclipse.lsp4j.HoverParams
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.LocationLink
+import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.RenameParams
 import org.eclipse.lsp4j.SignatureHelp
@@ -33,9 +34,12 @@ import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.services.TextDocumentService
+import java.net.URI
 import java.util.concurrent.CompletableFuture
 
-class WebDSLTextDocumentService : TextDocumentService {
+class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : TextDocumentService {
+  val compilerFacade = CompilerFacade()
+
   override fun completion(position: CompletionParams): CompletableFuture<Either<List<CompletionItem>, CompletionList>> {
     return CompletableFuture.supplyAsync { Either.forLeft(listOf()) }
   }
@@ -77,6 +81,12 @@ class WebDSLTextDocumentService : TextDocumentService {
   }
 
   override fun didOpen(params: DidOpenTextDocumentParams) {
+    val uri = URI(params.textDocument.uri)
+    if (uri.scheme == "file") {
+      println("didOpen")
+      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(uri.toString(), compilerFacade.analyse(uri.path).toDiagnosticList()))
+      println("analysis done")
+    }
   }
 
   override fun didChange(params: DidChangeTextDocumentParams) {
@@ -86,6 +96,12 @@ class WebDSLTextDocumentService : TextDocumentService {
   }
 
   override fun didSave(params: DidSaveTextDocumentParams) {
+    val uri = URI(params.textDocument.uri)
+    if (uri.scheme == "file") {
+      println("didSave")
+      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(uri.toString(), compilerFacade.analyse(uri.path).toDiagnosticList()))
+      println("analysis done")
+    }
   }
 
   override fun hover(params: HoverParams): CompletableFuture<Hover> {

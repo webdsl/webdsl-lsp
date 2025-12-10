@@ -13,8 +13,10 @@ import org.eclipse.lsp4j.services.TextDocumentService
 import org.eclipse.lsp4j.services.WorkspaceService
 import java.util.concurrent.CompletableFuture
 
-class WebDSLLanguageServer(val textDocumentService: TextDocumentService, val workspaceService: WorkspaceService) : LanguageServer {
-  var client: LanguageClient? = null
+class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
+  override var client: LanguageClient? = null
+  val webdslTextDocumentService: TextDocumentService = WebDSLTextDocumentService(this)
+  val webdslWorkspaceService: WorkspaceService = WebDSLWorkspaceService(this)
 
   override fun initialize(params: InitializeParams): CompletableFuture<InitializeResult> {
     val capabilities = ServerCapabilities().apply {
@@ -36,18 +38,20 @@ class WebDSLLanguageServer(val textDocumentService: TextDocumentService, val wor
   }
 
   override fun getTextDocumentService(): TextDocumentService {
-    return textDocumentService
+    return webdslTextDocumentService
   }
 
   override fun getWorkspaceService(): WorkspaceService {
-    return workspaceService
+    return webdslWorkspaceService
   }
 
   fun setRemoteProxy(languageClient: LanguageClient): Runnable {
     client = languageClient
 
     return Runnable({
-      this@WebDSLLanguageServer.client = null
+      this@WebDSLLanguageServer.apply {
+        client = null
+      }
     })
   }
 }
