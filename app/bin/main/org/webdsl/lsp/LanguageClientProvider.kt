@@ -4,4 +4,5 @@ import org.eclipse.lsp4j.services.LanguageClient
 
 interface LanguageClientProvider {
   val client: LanguageClient?
+  val workspaceInterface: WorkspaceInterface?
 }

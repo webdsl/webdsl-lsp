@@ -40,7 +40,7 @@ data class LspAnalysisResult(val errors: List<StrategoMessage>, val warnings: Li
   }
 }
 
-class CompilerFacade {
+class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   fun analyse(fileName: String): LspAnalysisResult {
     val ctx: Context = Main.init()
     ctx.setStandAlone(true)
@@ -56,7 +56,7 @@ class CompilerFacade {
     }
 
     try {
-      val rawResult = ctx.invokeStrategyCLI(lsp_main_0_0.instance, "Main", "-i", path.name, "--dir", path.parent.toString()) as StrategoTuple
+      val rawResult = ctx.invokeStrategyCLI(lsp_main_0_0.instance, "Main", "-i", workspaceInterface.compilerPathFor(path.toString())!!.name, "--dir", workspaceInterface.compilerPathFor(workspaceInterface.clientRoot.toString()).toString()) as StrategoTuple
       val errors = getMessages(rawResult.getSubterm(0) as StrategoList)
       val warnings = getMessages(rawResult.getSubterm(1) as StrategoList)
       val additionalInfo = rawResult.getSubterm(2) as StrategoList

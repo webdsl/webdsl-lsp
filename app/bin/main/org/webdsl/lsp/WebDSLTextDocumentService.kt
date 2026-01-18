@@ -34,11 +34,13 @@ import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.services.TextDocumentService
-import java.net.URI
+import org.webdsl.lsp.utils.parseFileURI
 import java.util.concurrent.CompletableFuture
 
 class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : TextDocumentService {
-  val compilerFacade = CompilerFacade()
+  val compilerFacade: CompilerFacade by lazy { // lazy cause workspaceInterface might be uninitialized
+    CompilerFacade(clientProvider.workspaceInterface!!)
+  }
 
   override fun completion(position: CompletionParams): CompletableFuture<Either<List<CompletionItem>, CompletionList>> {
     return CompletableFuture.supplyAsync { Either.forLeft(listOf()) }
@@ -81,25 +83,32 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   }
 
   override fun didOpen(params: DidOpenTextDocumentParams) {
-    val uri = URI(params.textDocument.uri)
-    if (uri.scheme == "file") {
+    parseFileURI(params.textDocument.uri)?.let {
       println("didOpen")
-      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(uri.toString(), compilerFacade.analyse(uri.path).toDiagnosticList()))
+      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(it.toString(), compilerFacade.analyse(it.path).toDiagnosticList()))
       println("analysis done")
     }
   }
 
   override fun didChange(params: DidChangeTextDocumentParams) {
+    parseFileURI(params.textDocument.uri)?.let {
+      println("didChange")
+      clientProvider.workspaceInterface?.change(it.path, params.contentChanges)
+      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(it.toString(), compilerFacade.analyse(it.path).toDiagnosticList()))
+      println("analysis done")
+    }
   }
 
   override fun didClose(params: DidCloseTextDocumentParams) {
+    parseFileURI(params.textDocument.uri)?.let {
+      clientProvider.workspaceInterface?.close(it.path)
+    }
   }
 
   override fun didSave(params: DidSaveTextDocumentParams) {
-    val uri = URI(params.textDocument.uri)
-    if (uri.scheme == "file") {
+    parseFileURI(params.textDocument.uri)?.let {
       println("didSave")
-      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(uri.toString(), compilerFacade.analyse(uri.path).toDiagnosticList()))
+      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(it.toString(), compilerFacade.analyse(it.path).toDiagnosticList()))
       println("analysis done")
     }
   }

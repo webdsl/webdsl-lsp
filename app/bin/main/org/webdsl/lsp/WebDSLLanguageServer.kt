@@ -11,10 +11,13 @@ import org.eclipse.lsp4j.services.LanguageClient
 import org.eclipse.lsp4j.services.LanguageServer
 import org.eclipse.lsp4j.services.TextDocumentService
 import org.eclipse.lsp4j.services.WorkspaceService
+import java.net.URI
 import java.util.concurrent.CompletableFuture
+import kotlin.io.path.Path
 
 class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
   override var client: LanguageClient? = null
+  override var workspaceInterface: WorkspaceInterface? = null
   val webdslTextDocumentService: TextDocumentService = WebDSLTextDocumentService(this)
   val webdslWorkspaceService: WorkspaceService = WebDSLWorkspaceService(this)
 
@@ -23,6 +26,9 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
       textDocumentSync = Either.forLeft(TextDocumentSyncKind.Full)
       completionProvider = CompletionOptions()
     }
+
+    // TODO: use `workspaceFolders` instead
+    workspaceInterface = MirrorWorkspaceInterfaceImpl(Path(URI(params.rootUri).path))
 
     val info = ServerInfo("WebDSL Language Server", "1.0.0")
     val result = InitializeResult(capabilities, info)
@@ -51,6 +57,8 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
     return Runnable({
       this@WebDSLLanguageServer.apply {
         client = null
+        workspaceInterface?.close()
+        workspaceInterface = null
       }
     })
   }
