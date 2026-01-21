@@ -5,6 +5,7 @@ import java.nio.file.Path
 
 interface WorkspaceInterface : java.io.Closeable {
   val clientRoot: Path
+  val compilerRoot: Path
   fun create(path: String)
   fun delete(path: String)
   fun rename(oldPath: String, newPath: String)

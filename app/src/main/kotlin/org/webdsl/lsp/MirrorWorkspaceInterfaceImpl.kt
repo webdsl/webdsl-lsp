@@ -9,7 +9,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.relativeTo
 
 class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) : WorkspaceInterface {
-  private val compilerRoot = Files.createTempDirectory("webdsllsp")
+  override val compilerRoot = Files.createTempDirectory("webdsllsp")
 
   init {
     clientRoot.toFile().copyRecursively(compilerRoot.toFile(), true)

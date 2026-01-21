@@ -1,11 +1,16 @@
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.CompletionOptions
+import org.eclipse.lsp4j.FileOperationFilter
+import org.eclipse.lsp4j.FileOperationOptions
+import org.eclipse.lsp4j.FileOperationPattern
+import org.eclipse.lsp4j.FileOperationsServerCapabilities
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.ServerCapabilities
 import org.eclipse.lsp4j.ServerInfo
 import org.eclipse.lsp4j.TextDocumentSyncKind
+import org.eclipse.lsp4j.WorkspaceServerCapabilities
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.services.LanguageClient
 import org.eclipse.lsp4j.services.LanguageServer
@@ -25,6 +30,23 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
     val capabilities = ServerCapabilities().apply {
       textDocumentSync = Either.forLeft(TextDocumentSyncKind.Full)
       completionProvider = CompletionOptions()
+      workspace = WorkspaceServerCapabilities().apply {
+        fileOperations = FileOperationsServerCapabilities().apply {
+          val matchAllFileOperations = FileOperationOptions(
+            listOf(
+              FileOperationFilter(
+                FileOperationPattern(
+                  "**/*",
+                ),
+                "file",
+              ),
+            ),
+          )
+          didCreate = matchAllFileOperations
+          didDelete = matchAllFileOperations
+          didRename = matchAllFileOperations
+        }
+      }
     }
 
     // TODO: use `workspaceFolders` instead

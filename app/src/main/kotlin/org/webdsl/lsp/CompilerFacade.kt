@@ -14,10 +14,10 @@ import org.strategoxt.lang.Context
 import org.strategoxt.lang.StrategoExit
 import org.webdsl.webdslc.Main
 import org.webdsl.webdslc.lsp_main_0_0
-import kotlin.io.path.Path
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.name
+import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
 
 data class StrategoLocation(val file: String, val line: Int, val column: Int)
@@ -45,8 +45,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     val ctx: Context = Main.init()
     ctx.setStandAlone(true)
 
-    val path = Path(fileName)
-    val builtinPath = path.parent.resolve(".servletapp/src-webdsl-template/built-in.app")
+    val path = workspaceInterface.compilerPathFor(fileName)
+    if (path == null) {
+      return LspAnalysisResult(listOf(), listOf(), listOf())
+    }
+    val builtinPath = workspaceInterface.compilerRoot.resolve(".servletapp/src-webdsl-template/built-in.app")
     if (!builtinPath.exists()) {
       builtinPath.apply {
         val builtin = object {}::class.java.getResourceAsStream("/webdsl/template-webdsl/built-in.app")?.bufferedReader()?.readText()!!
@@ -56,7 +59,7 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     }
 
     try {
-      val rawResult = ctx.invokeStrategyCLI(lsp_main_0_0.instance, "Main", "-i", workspaceInterface.compilerPathFor(path.toString())!!.name, "--dir", workspaceInterface.compilerPathFor(workspaceInterface.clientRoot.toString()).toString()) as StrategoTuple
+      val rawResult = ctx.invokeStrategyCLI(lsp_main_0_0.instance, "Main", "-i", path.relativeTo(workspaceInterface.compilerRoot).toString(), "--dir", workspaceInterface.compilerRoot.toString()) as StrategoTuple
       val errors = getMessages(rawResult.getSubterm(0) as StrategoList)
       val warnings = getMessages(rawResult.getSubterm(1) as StrategoList)
       val additionalInfo = rawResult.getSubterm(2) as StrategoList
@@ -86,7 +89,7 @@ fun getLocation(term: IStrategoTerm): StrategoLocation? {
       (it.getSubterm(1) as StrategoInt).intValue(),
       (it.getSubterm(2) as StrategoInt).intValue(),
     )
-  }
+  } ?: StrategoLocation("TODO: project root", 1, 1)
 }
 
 fun getMessages(messageList: StrategoList): List<StrategoMessage> {
