@@ -3,6 +3,8 @@ package org.webdsl.lsp.utils
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent
 import java.net.URI
 
+typealias WebDSLAppConfig = Map<String, String>
+
 // TODO: check ranges
 // TODO: does it make a difference which line terminator is used to join the lines?
 // TODO: handle encodings and characters represented by multiple bytes correctly
@@ -16,6 +18,27 @@ fun applyChange(content: String, change: TextDocumentContentChangeEvent): String
     val beforeChange = lines.take(start.line).joinToString("\n") + lines[start.line].take(start.character)
     val afterChange = lines[end.line].drop(end.character + 1) + lines.drop(end.line).joinToString("\n")
     return beforeChange + change.text + afterChange
+  }
+}
+
+/**
+ * Parse config from application.ini file
+ *
+ * @param config contents of application.ini
+ * @return WebDSL app configuration on success, null on parse error
+ */
+fun parseConfig(config: String): WebDSLAppConfig? {
+  return try {
+    config.lines().map {
+      val kv = it.split("=", limit = 2)
+      if (kv.size != 2) {
+        null
+      } else {
+        kv[0] to kv[1]
+      }
+    }.requireNoNulls().toMap()
+  } catch (ex: IllegalArgumentException) {
+    null
   }
 }
 

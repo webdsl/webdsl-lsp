@@ -85,7 +85,9 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   override fun didOpen(params: DidOpenTextDocumentParams) {
     parseFileURI(params.textDocument.uri)?.let {
       println("didOpen")
-      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(it.toString(), compilerFacade.analyse(it.path).toDiagnosticList()))
+      for ((k, v) in compilerFacade.analyse(it.path).toDiagnosticMap()) {
+        clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(k, v))
+      }
       println("analysis done")
     }
   }
@@ -94,7 +96,9 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
     parseFileURI(params.textDocument.uri)?.let {
       println("didChange")
       clientProvider.workspaceInterface?.change(it.path, params.contentChanges)
-      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(it.toString(), compilerFacade.analyse(it.path).toDiagnosticList()))
+      for ((k, v) in compilerFacade.analyse(it.path).toDiagnosticMap()) {
+        clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(k, v))
+      }
       println("analysis done")
     }
   }
@@ -108,7 +112,10 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   override fun didSave(params: DidSaveTextDocumentParams) {
     parseFileURI(params.textDocument.uri)?.let {
       println("didSave")
-      clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(it.toString(), compilerFacade.analyse(it.path).toDiagnosticList()))
+      for ((k, v) in compilerFacade.analyse(it.path).toDiagnosticMap()) {
+        println("$k -> $v")
+        clientProvider.client?.publishDiagnostics(PublishDiagnosticsParams(k, v))
+      }
       println("analysis done")
     }
   }
