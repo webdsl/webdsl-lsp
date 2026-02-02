@@ -2,6 +2,7 @@ package org.webdsl.lsp
 
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent
 import org.webdsl.lsp.utils.applyChange
+import org.webdsl.lsp.utils.recursivelyCopyFilesWithExtensions
 import java.nio.file.Files
 import kotlin.io.copyRecursively
 import kotlin.io.deleteRecursively
@@ -12,7 +13,8 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
   override val compilerRoot = Files.createTempDirectory("webdsllsp")
 
   init {
-    clientRoot.toFile().copyRecursively(compilerRoot.toFile(), true)
+    // clientRoot.toFile().copyRecursively(compilerRoot.toFile(), true)
+    recursivelyCopyFilesWithExtensions(clientRoot.toFile(), compilerRoot.toFile(), listOf("app", "ini"))
     println("Created mapping $clientRoot -> $compilerRoot")
   }
 

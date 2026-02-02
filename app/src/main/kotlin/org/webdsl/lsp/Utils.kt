@@ -1,6 +1,7 @@
 package org.webdsl.lsp.utils
 
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent
+import java.io.File
 import java.net.URI
 
 typealias WebDSLAppConfig = Map<String, String>
@@ -51,11 +52,47 @@ fun parseConfig(config: String): WebDSLAppConfig? {
   }
 }
 
+/**
+ * Parse a URI with file:// scheme
+ * 
+ * @param uri a string representation of a URI
+ * @return parsed URI if the scheme is file://, null otherwise
+ */
 fun parseFileURI(uri: String): URI? {
   val u = URI(uri)
   if (u.scheme == "file") {
     return u
   } else {
     return null
+  }
+}
+
+/**
+ * Recursively copy a directory including only files with specified extensions
+ * 
+ * @param source the directory to copy
+ * @param destiantion the destination to copy to
+ * @param extensions the extensions to include
+ * @return true on success, false otherwise
+ */
+fun recursivelyCopyFilesWithExtensions(source: File, destination: File, extensions: List<String>): Boolean {
+  return if (source.isDirectory()) {
+    destination.mkdir()
+    source.listFiles().all {
+      recursivelyCopyFilesWithExtensions(
+        it,
+        File(destination.toPath().resolve(it.name).toString()),
+        extensions
+      )
+    }
+  } else if (extensions.contains(source.extension)) {
+    try {
+      source.copyTo(destination, overwrite=true)
+      true
+    } catch(ex: Exception) {
+      false
+    }
+  } else {
+    true
   }
 }
