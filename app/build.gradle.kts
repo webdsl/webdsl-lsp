@@ -91,6 +91,7 @@ java {
 application {
     // Define the main class for the application.
     mainClass = "org.webdsl.lsp.AppKt"
+    applicationDefaultJvmArgs = listOf("-Xss8m")
 }
 
 tasks.named<Test>("test") {

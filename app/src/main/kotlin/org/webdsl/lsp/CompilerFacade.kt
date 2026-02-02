@@ -35,7 +35,6 @@ data class StrategoMessage(val relatedTerm: IStrategoTerm?, val messageText: Str
 }
 
 data class LspAnalysisResult(val errors: List<StrategoMessage>, val warnings: List<StrategoMessage>, val additionalInfo: List<IStrategoTerm>, val clearedFiles: List<String>) {
-  // TODO: separate by file path
   fun toDiagnosticMap(): Map<String, List<Diagnostic>> {
     val errors = (
       errors.map { it.location.file to it.toDiagnostic(DiagnosticSeverity.Error) } +
