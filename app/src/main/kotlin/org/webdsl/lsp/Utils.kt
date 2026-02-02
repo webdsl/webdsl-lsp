@@ -28,13 +28,22 @@ fun applyChange(content: String, change: TextDocumentContentChangeEvent): String
  * @return WebDSL app configuration on success, null on parse error
  */
 fun parseConfig(config: String): WebDSLAppConfig? {
+  val trimmedLines = config.lines().mapNotNull {
+    val trimmed = it.trimStart()
+    if (trimmed.length == 0 || trimmed.startsWith("#")) {
+      null
+    } else {
+      trimmed
+    }
+  }
+
   return try {
-    config.lines().map {
+    trimmedLines.map {
       val kv = it.split("=", limit = 2)
       if (kv.size != 2) {
         null
       } else {
-        kv[0] to kv[1]
+        kv[0].trim() to kv[1].trimStart()
       }
     }.requireNoNulls().toMap()
   } catch (ex: IllegalArgumentException) {
