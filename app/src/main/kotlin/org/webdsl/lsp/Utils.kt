@@ -22,6 +22,7 @@ fun applyChange(content: String, change: TextDocumentContentChangeEvent): String
   }
 }
 
+// java.util.Properties
 /**
  * Parse config from application.ini file
  *
@@ -54,7 +55,7 @@ fun parseConfig(config: String): WebDSLAppConfig? {
 
 /**
  * Parse a URI with file:// scheme
- * 
+ *
  * @param uri a string representation of a URI
  * @return parsed URI if the scheme is file://, null otherwise
  */
@@ -69,7 +70,7 @@ fun parseFileURI(uri: String): URI? {
 
 /**
  * Recursively copy a directory including only files with specified extensions
- * 
+ *
  * @param source the directory to copy
  * @param destiantion the destination to copy to
  * @param extensions the extensions to include
@@ -82,14 +83,14 @@ fun recursivelyCopyFilesWithExtensions(source: File, destination: File, extensio
       recursivelyCopyFilesWithExtensions(
         it,
         File(destination.toPath().resolve(it.name).toString()),
-        extensions
+        extensions,
       )
     }
   } else if (extensions.contains(source.extension)) {
     try {
-      source.copyTo(destination, overwrite=true)
+      source.copyTo(destination, overwrite = true)
       true
-    } catch(ex: Exception) {
+    } catch (ex: Exception) {
       false
     }
   } else {

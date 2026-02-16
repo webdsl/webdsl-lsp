@@ -4,7 +4,6 @@ import org.eclipse.lsp4j.TextDocumentContentChangeEvent
 import org.webdsl.lsp.utils.applyChange
 import org.webdsl.lsp.utils.recursivelyCopyFilesWithExtensions
 import java.nio.file.Files
-import kotlin.io.copyRecursively
 import kotlin.io.deleteRecursively
 import kotlin.io.path.Path
 import kotlin.io.path.relativeTo
