@@ -140,12 +140,16 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     if (path == null) {
       return null
     }
-    val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString()
 
     ensureBuiltins()
 
     try {
       val appName = getAppName().case({ return null }, { it })
+
+      val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
+        // this might get fixed in webdslc at some point
+        (if (it == appName + ".app") "" else "./") + it
+      }
 
       val rawResult = ctx.invokeStrategyCLI(lsp_resolve_0_0.instance, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.line.toString(), "-column", loc.column.toString()) as StrategoAppl?
 
