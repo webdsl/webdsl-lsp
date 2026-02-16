@@ -97,3 +97,13 @@ fun recursivelyCopyFilesWithExtensions(source: File, destination: File, extensio
     true
   }
 }
+
+sealed class Either<out L, out R> {
+  data class Left<L>(val value: L) : Either<L, Nothing>()
+  data class Right<R>(val value: R) : Either<Nothing, R>()
+}
+
+inline fun <L, R, T> Either<L, R>.case(forLeft: (L) -> T, forRight: (R) -> T): T = when (this) {
+  is Either.Left -> forLeft(this.value)
+  is Either.Right -> forRight(this.value)
+}

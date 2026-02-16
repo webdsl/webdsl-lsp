@@ -47,6 +47,7 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
           didRename = matchAllFileOperations
         }
       }
+      definitionProvider = Either.forLeft(true)
     }
 
     // TODO: use `workspaceFolders` instead

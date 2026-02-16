@@ -25,6 +25,7 @@ import org.eclipse.lsp4j.HoverParams
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.LocationLink
 import org.eclipse.lsp4j.PublishDiagnosticsParams
+import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.RenameParams
 import org.eclipse.lsp4j.SignatureHelp
@@ -51,7 +52,14 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   }
 
   override fun definition(params: DefinitionParams): CompletableFuture<Either<List<Location>, List<LocationLink>>> {
-    return CompletableFuture.supplyAsync { Either.forLeft(listOf()) }
+    val loc = StrategoLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
+    return CompletableFuture.supplyAsync {
+      Either.forLeft(
+        compilerFacade.findDefinition(loc)?.let {
+          listOf(it.toLspLocation())
+        } ?: listOf(),
+      )
+    }
   }
 
   override fun codeAction(params: CodeActionParams): CompletableFuture<List<Either<Command, CodeAction>>> {
