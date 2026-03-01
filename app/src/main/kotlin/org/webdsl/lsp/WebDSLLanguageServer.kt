@@ -1,5 +1,6 @@
 package org.webdsl.lsp
 
+import org.eclipse.lsp4j.CompletionItemOptions
 import org.eclipse.lsp4j.CompletionOptions
 import org.eclipse.lsp4j.FileOperationFilter
 import org.eclipse.lsp4j.FileOperationOptions
@@ -29,7 +30,12 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
   override fun initialize(params: InitializeParams): CompletableFuture<InitializeResult> {
     val capabilities = ServerCapabilities().apply {
       textDocumentSync = Either.forLeft(TextDocumentSyncKind.Full) // see the comment for `applyChange` in Utils.kt before ever changing this value
-      completionProvider = CompletionOptions()
+      completionProvider = CompletionOptions().apply {
+        resolveProvider = false
+        completionItem = CompletionItemOptions().apply {
+          labelDetailsSupport = true
+        }
+      }
       workspace = WorkspaceServerCapabilities().apply {
         fileOperations = FileOperationsServerCapabilities().apply {
           val matchAllFileOperations = FileOperationOptions(

@@ -44,7 +44,12 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   }
 
   override fun completion(position: CompletionParams): CompletableFuture<Either<List<CompletionItem>, CompletionList>> {
-    return CompletableFuture.supplyAsync { Either.forLeft(listOf()) }
+    val loc = StrategoLocation(Location(position.textDocument.uri, Range(position.position, position.position)))
+    return CompletableFuture.supplyAsync {
+      Either.forLeft(
+        compilerFacade.complete(loc).map { it.toLspCompletion() },
+      )
+    }
   }
 
   override fun resolveCompletionItem(unresolved: CompletionItem): CompletableFuture<CompletionItem> {

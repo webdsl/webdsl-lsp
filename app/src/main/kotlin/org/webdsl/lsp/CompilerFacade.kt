@@ -1,5 +1,7 @@
 package org.webdsl.lsp
 
+import org.eclipse.lsp4j.CompletionItem
+import org.eclipse.lsp4j.CompletionItemLabelDetails
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
 import org.eclipse.lsp4j.Location
@@ -13,10 +15,12 @@ import org.spoofax.terms.StrategoString
 import org.spoofax.terms.StrategoTuple
 import org.strategoxt.lang.Context
 import org.strategoxt.lang.StrategoExit
+import org.strategoxt.lang.Strategy
 import org.webdsl.lsp.utils.Either
 import org.webdsl.lsp.utils.case
 import org.webdsl.lsp.utils.parseFileURI
 import org.webdsl.webdslc.Main
+import org.webdsl.webdslc.lsp_complete_0_0
 import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_resolve_0_0
 import kotlin.io.copyTo
@@ -63,8 +67,21 @@ data class LspAnalysisResult(val errors: List<StrategoMessage>, val warnings: Li
   }
 }
 
+data class StrategoCompletion(val completion: String, val details: String) {
+  fun toLspCompletion(): CompletionItem {
+    return CompletionItem().apply {
+      label = completion
+      labelDetails = CompletionItemLabelDetails().apply {
+        description = details
+      }
+    }
+  }
+}
+
 class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
-  var dirtyFiles: Set<String> = setOf()
+  var dirtyFiles: Set<String> = setOf() // list of files that had errors/warnings at last analysis run
+  var resolveDirty: Boolean = true // whether any files have changed since last lsp-resolve
+  var completeDirty: Boolean = true // whether any files have changed since last lsp-complete
 
   fun ensureBuiltins() {
     val builtinPath = workspaceInterface.compilerRoot.resolve(".servletapp/src-webdsl-template/built-in.app")
@@ -102,6 +119,10 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   }
 
   fun analyse(fileName: String): LspAnalysisResult {
+    // TODO: analyse can also be called from a simple didOpen, do not invalidate the cache in that situation
+    resolveDirty = true
+    completeDirty = true
+
     val ctx: Context = Main.init()
     ctx.setStandAlone(true)
 
@@ -151,8 +172,18 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         (if (it == appName + ".app") "" else "./") + it
       }
 
-      val rawResult = ctx.invokeStrategyCLI(lsp_resolve_0_0.instance, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.line.toString(), "-column", loc.column.toString()) as StrategoAppl?
+      val strategy: Strategy = if (resolveDirty) {
+        // println("normal")
+        lsp_resolve_0_0.instance
+      } else {
+        // println("cached")
+        // lsp_resolve_cached_0_0.instance
+        lsp_resolve_0_0.instance // cached version doesn't seem to work for now
+      }
+      val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.line.toString(), "-column", loc.column.toString()) as StrategoAppl?
+      resolveDirty = false
 
+      // println("Raw result: $rawResult")
       if (rawResult == null) {
         return null
       }
@@ -162,6 +193,40 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       println("Exception occured while resolving definition at $loc: $e")
       e.printStackTrace()
       return null
+    }
+  }
+
+  fun complete(loc: StrategoLocation): List<StrategoCompletion> {
+    val ctx: Context = Main.init()
+    ctx.setStandAlone(true)
+
+    val path = workspaceInterface.compilerPathFor(loc.file)
+    if (path == null) {
+      return listOf()
+    }
+
+    ensureBuiltins()
+
+    try {
+      val appName = getAppName().case({ return listOf() }, { it })
+
+      val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
+        // this might get fixed in webdslc at some point
+        (if (it == appName + ".app") "" else "./") + it
+      }
+
+      val rawResult = ctx.invokeStrategyCLI(lsp_complete_0_0.instance, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.line.toString(), "-column", loc.column.toString()) as StrategoList?
+      completeDirty = false
+
+      if (rawResult == null) {
+        return listOf()
+      }
+
+      return rawResult.getAllSubterms().asList().map { parseCompletion(it) }
+    } catch (e: StrategoExit) {
+      println("Exception occured while completing at $loc: $e")
+      e.printStackTrace()
+      return listOf()
     }
   }
 
@@ -185,6 +250,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     workspaceInterface.clientRoot.resolve(Path((term.getSubterm(0) as StrategoString).stringValue()).normalize()).toString(),
     (term.getSubterm(1) as StrategoInt).intValue(),
     (term.getSubterm(2) as StrategoInt).intValue(),
+  )
+
+  fun parseCompletion(term: IStrategoTerm): StrategoCompletion = StrategoCompletion(
+    (term.getSubterm(0) as StrategoString).stringValue(),
+    (term.getSubterm(1) as StrategoString).stringValue(),
   )
 
   fun getMessages(messageList: StrategoList): List<StrategoMessage> {
