@@ -30,15 +30,27 @@ import kotlin.io.path.exists
 import kotlin.io.path.name
 import kotlin.io.path.writeText
 
-data class StrategoLocation(val file: String, val line: Int, val column: Int) {
-  constructor(loc: Location) : this(parseFileURI(loc.uri)!!.path, loc.range.start.line + 1, loc.range.start.character + 1)
+data class StrategoPosition(val line: Int, val column: Int) {
+  constructor(pos: Position) : this(pos.line + 1, pos.character + 1)
+
+  fun toLspPosition(): Position {
+    return Position(line - 1, column - 1)
+  }
+}
+
+// data class StrategoLocation(val file: String, val line: Int, val column: Int) {
+data class StrategoLocation(val file: String, val start: StrategoPosition, val end: StrategoPosition) {
+  constructor(loc: Location) : this(parseFileURI(loc.uri)!!.path, StrategoPosition(loc.range.start), StrategoPosition(loc.range.end))
 
   fun toLspLocation(): Location {
     return Location(
       "file://" + file,
-      Range(Position(line - 1, column - 1), Position(line - 1, column)),
+      Range(start.toLspPosition(), end.toLspPosition()),
     )
   }
+
+  val lspRange: Range
+    get() = Range(start.toLspPosition(), end.toLspPosition())
 }
 
 data class StrategoMessage(val relatedTerm: IStrategoTerm?, val messageText: String, val location: StrategoLocation) {
@@ -47,7 +59,7 @@ data class StrategoMessage(val relatedTerm: IStrategoTerm?, val messageText: Str
       severity = diagnosticSeverity
       message = messageText
       // TODO: properly calculate ranges
-      range = Range(Position(location.line - 1, location.column - 1), Position(location.line - 1, location.column))
+      range = location.lspRange
     }
   }
 }
@@ -180,7 +192,7 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         // lsp_resolve_cached_0_0.instance
         lsp_resolve_0_0.instance // cached version doesn't seem to work for now
       }
-      val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.line.toString(), "-column", loc.column.toString()) as StrategoAppl?
+      val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoAppl?
       resolveDirty = false
 
       // println("Raw result: $rawResult")
@@ -215,7 +227,7 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         (if (it == appName + ".app") "" else "./") + it
       }
 
-      val rawResult = ctx.invokeStrategyCLI(lsp_complete_0_0.instance, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.line.toString(), "-column", loc.column.toString()) as StrategoList?
+      val rawResult = ctx.invokeStrategyCLI(lsp_complete_0_0.instance, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoList?
       completeDirty = false
 
       if (rawResult == null) {
@@ -243,14 +255,19 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
 
     return atAnnotation?.let {
       return parseAtAnnotation(it)
-    } ?: StrategoLocation(workspaceInterface.clientRoot.resolve(workspaceInterface.appName?.let { it + ".app" } ?: "application.ini").toString(), 1, 1)
+    } ?: StrategoLocation(workspaceInterface.clientRoot.resolve(workspaceInterface.appName?.let { it + ".app" } ?: "application.ini").toString(), StrategoPosition(1, 1), StrategoPosition(1, 1))
   }
 
-  fun parseAtAnnotation(term: IStrategoTerm): StrategoLocation? = StrategoLocation(
-    workspaceInterface.clientRoot.resolve(Path((term.getSubterm(0) as StrategoString).stringValue()).normalize()).toString(),
-    (term.getSubterm(1) as StrategoInt).intValue(),
-    (term.getSubterm(2) as StrategoInt).intValue(),
-  )
+  fun parseAtAnnotation(term: IStrategoTerm): StrategoLocation? {
+    val file = workspaceInterface.clientRoot.resolve(Path((term.getSubterm(0) as StrategoString).stringValue()).normalize()).toString()
+    val start = StrategoPosition((term.getSubterm(1) as StrategoInt).intValue(), (term.getSubterm(2) as StrategoInt).intValue())
+    val end = if (term.subtermCount == 3) {
+      start
+    } else {
+      StrategoPosition((term.getSubterm(3) as StrategoInt).intValue(), (term.getSubterm(4) as StrategoInt).intValue())
+    }
+    return StrategoLocation(file, start, end)
+  }
 
   fun parseCompletion(term: IStrategoTerm): StrategoCompletion = StrategoCompletion(
     (term.getSubterm(0) as StrategoString).stringValue(),
@@ -276,6 +293,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   fun singleErrorResult(fileName: String, error: String): LspAnalysisResult {
     val oldDirty = dirtyFiles.toList()
     dirtyFiles = setOf(fileName)
-    return LspAnalysisResult(listOf(StrategoMessage(null, error, StrategoLocation(fileName, 1, 1))), listOf(), listOf(), oldDirty)
+    return LspAnalysisResult(listOf(StrategoMessage(null, error, StrategoLocation(fileName, StrategoPosition(1, 1), StrategoPosition(1, 1)))), listOf(), listOf(), oldDirty)
   }
 }
