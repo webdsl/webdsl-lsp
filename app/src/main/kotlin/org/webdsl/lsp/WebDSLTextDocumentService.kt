@@ -28,6 +28,8 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.RenameParams
+import org.eclipse.lsp4j.SemanticTokens
+import org.eclipse.lsp4j.SemanticTokensParams
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.SignatureHelpParams
 import org.eclipse.lsp4j.SymbolInformation
@@ -151,5 +153,19 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
 
   override fun documentSymbol(params: DocumentSymbolParams): CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> {
     return CompletableFuture.supplyAsync { listOf() }
+  }
+
+  override fun semanticTokensFull(params: SemanticTokensParams): CompletableFuture<SemanticTokens> {
+    return CompletableFuture.supplyAsync {
+      SemanticTokens(
+        parseFileURI(params.textDocument.uri)?.let {
+          val rawTokens = compilerFacade.semanticTokens(it.path)
+          val guard = StrategoSemanticToken("", StrategoPosition(1, 1), WebDSLSemanticTokenType.KEYWORD)
+          rawTokens.scan(guard to guard) { (acc, _), it ->
+            it to it.relativeTo(acc)
+          }.drop(1).flatMap { it.second.flatten() }
+        } ?: listOf(),
+      )
+    }
   }
 }

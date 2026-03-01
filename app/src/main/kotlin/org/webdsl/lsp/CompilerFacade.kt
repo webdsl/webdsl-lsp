@@ -22,6 +22,7 @@ import org.webdsl.lsp.utils.parseFileURI
 import org.webdsl.webdslc.Main
 import org.webdsl.webdslc.lsp_complete_0_0
 import org.webdsl.webdslc.lsp_main_0_0
+import org.webdsl.webdslc.lsp_parse_0_0
 import org.webdsl.webdslc.lsp_resolve_0_0
 import kotlin.io.copyTo
 import kotlin.io.path.Path
@@ -58,7 +59,6 @@ data class StrategoMessage(val relatedTerm: IStrategoTerm?, val messageText: Str
     return Diagnostic().apply {
       severity = diagnosticSeverity
       message = messageText
-      // TODO: properly calculate ranges
       range = location.lspRange
     }
   }
@@ -87,6 +87,27 @@ data class StrategoCompletion(val completion: String, val details: String) {
         description = details
       }
     }
+  }
+}
+
+data class StrategoSemanticToken(val token: String, val position: StrategoPosition, val tokenType: WebDSLSemanticTokenType) {
+  fun relativeTo(other: StrategoSemanticToken): StrategoSemanticToken {
+    val (line, character) = position
+    val (otherLine, otherCharacter) = other.position
+
+    val relativeLine = line - otherLine
+    val relativeCharacter = if (line == otherLine) {
+      character - otherCharacter
+    } else {
+      character - 1 // conversion to LSP format
+    }
+
+    return this.copy(position = StrategoPosition(relativeLine, relativeCharacter))
+  }
+
+  fun flatten(): List<Int> {
+    // line, startChar, length, tokenType, tokenModifiers
+    return listOf(position.line, position.column, token.length, tokenType.ordinal, 0)
   }
 }
 
@@ -242,6 +263,32 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     }
   }
 
+  fun semanticTokens(fileName: String): List<StrategoSemanticToken> {
+    val ctx: Context = Main.init()
+    ctx.setStandAlone(true)
+
+    val path = workspaceInterface.compilerPathFor(fileName)
+    if (path == null) {
+      return listOf()
+    }
+
+    try {
+      val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString()
+
+      val rawResult = ctx.invokeStrategyCLI(lsp_parse_0_0.instance, "Main", "-i", relativeFile, "--dir", workspaceInterface.compilerRoot.toString()) as StrategoList?
+
+      if (rawResult == null) {
+        return listOf()
+      }
+
+      return rawResult.getAllSubterms().asList().map { parseSemanticToken(it) }
+    } catch (e: StrategoExit) {
+      println("Exception occured while parsing $fileName: $e")
+      e.printStackTrace()
+      return listOf()
+    }
+  }
+
   fun extractLocation(term: IStrategoTerm): StrategoLocation? {
     val atAnnotation = term.annotations.find {
       val appl = it as? StrategoAppl
@@ -273,6 +320,14 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     (term.getSubterm(0) as StrategoString).stringValue(),
     (term.getSubterm(1) as StrategoString).stringValue(),
   )
+
+  fun parseSemanticToken(term: IStrategoTerm): StrategoSemanticToken {
+    val token = (term.getSubterm(0) as StrategoString).stringValue()
+    val rawLoc = term.getSubterm(1) as StrategoAppl
+    val position = StrategoPosition((rawLoc.getSubterm(0) as StrategoInt).intValue(), (rawLoc.getSubterm(1) as StrategoInt).intValue())
+    val tokenType = WebDSLSemanticTokenType.valueOf((term.getSubterm(2) as StrategoString).stringValue().uppercase())
+    return StrategoSemanticToken(token, position, tokenType)
+  }
 
   fun getMessages(messageList: StrategoList): List<StrategoMessage> {
     return messageList.map {

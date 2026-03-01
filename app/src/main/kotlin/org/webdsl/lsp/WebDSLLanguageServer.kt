@@ -8,6 +8,8 @@ import org.eclipse.lsp4j.FileOperationPattern
 import org.eclipse.lsp4j.FileOperationsServerCapabilities
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
+import org.eclipse.lsp4j.SemanticTokensLegend
+import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions
 import org.eclipse.lsp4j.ServerCapabilities
 import org.eclipse.lsp4j.ServerInfo
 import org.eclipse.lsp4j.TextDocumentSyncKind
@@ -54,6 +56,14 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
         }
       }
       definitionProvider = Either.forLeft(true)
+      semanticTokensProvider = SemanticTokensWithRegistrationOptions().apply {
+        legend = SemanticTokensLegend().apply {
+          tokenTypes = WebDSLSemanticTokenType.entries.map { it.lspName }
+          tokenModifiers = listOf()
+        }
+        range = Either.forLeft(false)
+        full = Either.forLeft(true)
+      }
     }
 
     // TODO: use `workspaceFolders` instead
