@@ -22,6 +22,8 @@ import org.eclipse.lsp4j.DocumentSymbol
 import org.eclipse.lsp4j.DocumentSymbolParams
 import org.eclipse.lsp4j.Hover
 import org.eclipse.lsp4j.HoverParams
+import org.eclipse.lsp4j.InlayHint
+import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.LocationLink
 import org.eclipse.lsp4j.PublishDiagnosticsParams
@@ -146,7 +148,7 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   override fun references(params: ReferenceParams): CompletableFuture<List<Location>> {
     val loc = StrategoLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
     return CompletableFuture.supplyAsync {
-        compilerFacade.findReferences(loc).map { it.toLspLocation() }
+      compilerFacade.findReferences(loc).map { it.toLspLocation() }
     }
   }
 
@@ -169,6 +171,22 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
           }.drop(1).flatMap { it.second.flatten() }
         } ?: listOf(),
       )
+    }
+  }
+
+  override fun inlayHint(params: InlayHintParams): CompletableFuture<List<InlayHint>> {
+    return CompletableFuture.supplyAsync {
+      val fileName = parseFileURI(params.textDocument.uri)?.path
+      if (fileName == null) {
+        return@supplyAsync listOf()
+      }
+
+      val start = StrategoPosition(params.range.start)
+      val end = StrategoPosition(params.range.end)
+
+      val loc = StrategoLocation(fileName, start, end)
+
+      compilerFacade.inlayHints(loc).map { it.toLspInlayHint() }
     }
   }
 }

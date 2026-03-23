@@ -1,9 +1,9 @@
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.CompletionItem
-import org.eclipse.lsp4j.CompletionItemLabelDetails
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
+import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
@@ -20,11 +20,11 @@ import org.webdsl.lsp.utils.Either
 import org.webdsl.lsp.utils.case
 import org.webdsl.lsp.utils.parseFileURI
 import org.webdsl.webdslc.Main
-import org.webdsl.webdslc.lsp_complete_0_0
-import org.webdsl.webdslc.lsp_find_references_0_0
+import org.webdsl.webdslc.lsp_complete_cached_0_0
+import org.webdsl.webdslc.lsp_find_references_cached_0_0
 import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_parse_0_0
-import org.webdsl.webdslc.lsp_resolve_0_0
+import org.webdsl.webdslc.lsp_resolve_cached_0_0
 import kotlin.io.copyTo
 import kotlin.io.path.Path
 import kotlin.io.path.createParentDirectories
@@ -40,7 +40,6 @@ data class StrategoPosition(val line: Int, val column: Int) {
   }
 }
 
-// data class StrategoLocation(val file: String, val line: Int, val column: Int) {
 data class StrategoLocation(val file: String, val start: StrategoPosition, val end: StrategoPosition) {
   constructor(loc: Location) : this(parseFileURI(loc.uri)!!.path, StrategoPosition(loc.range.start), StrategoPosition(loc.range.end))
 
@@ -110,15 +109,21 @@ data class StrategoSemanticToken(val token: String, val position: StrategoPositi
   }
 }
 
+data class StrategoInlayHint(val position: StrategoPosition, val label: String) {
+  fun toLspInlayHint(): InlayHint {
+    return InlayHint(position.toLspPosition(), org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(label))
+  }
+}
+
+fun newContext(): Context = Main.init().apply {
+  setStandAlone(true)
+}
+
 class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   var dirtyFiles: Set<String> = setOf() // list of files that had errors/warnings at last analysis run
   var resolveDirty: Boolean = true // whether any files have changed since last lsp-resolve
   var completeDirty: Boolean = true // whether any files have changed since last lsp-complete
-  // val ctx: Context = Main.init()
-
-  // init {
-  //   ctx.setStandAlone(true)
-  // }
+  var ctx: Context = newContext()
 
   fun ensureBuiltins() {
     val builtinPath = workspaceInterface.compilerRoot.resolve(".servletapp/src-webdsl-template/built-in.app")
@@ -160,8 +165,7 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     resolveDirty = true
     completeDirty = true
 
-    val ctx: Context = Main.init()
-    ctx.setStandAlone(true)
+    ctx = newContext()
 
     val path = workspaceInterface.compilerPathFor(fileName)
     if (path == null) {
@@ -191,9 +195,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   }
 
   fun findDefinition(loc: StrategoLocation): StrategoLocation? {
-    val ctx: Context = Main.init()
-    ctx.setStandAlone(true)
-
     val path = workspaceInterface.compilerPathFor(loc.file)
     if (path == null) {
       return null
@@ -209,18 +210,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         (if (it == appName + ".app") "" else "./") + it
       }
 
-      val strategy: Strategy = if (resolveDirty) {
-        // println("normal")
-        lsp_resolve_0_0.instance
-      } else {
-        // println("cached")
-        // lsp_resolve_cached_0_0.instance
-        lsp_resolve_0_0.instance // cached version doesn't seem to work for now
-      }
+      val strategy: Strategy = lsp_resolve_cached_0_0.instance
       val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoAppl?
       resolveDirty = false
 
-      // println("Raw result: $rawResult")
+      println("findDefinition raw result: $rawResult")
       if (rawResult == null) {
         return null
       }
@@ -234,9 +228,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   }
 
   fun findReferences(loc: StrategoLocation): List<StrategoLocation> {
-    val ctx = Main.init()
-    ctx.setStandAlone(true)
-
     val path = workspaceInterface.compilerPathFor(loc.file)
     if (path == null) {
       return listOf()
@@ -252,7 +243,7 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         (if (it == appName + ".app") "" else "./") + it
       }
 
-      val strategy: Strategy = lsp_find_references_0_0.instance
+      val strategy: Strategy = lsp_find_references_cached_0_0.instance
       val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoList?
 
       if (rawResult == null) {
@@ -268,9 +259,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   }
 
   fun complete(loc: StrategoLocation): List<StrategoCompletion> {
-    val ctx: Context = Main.init()
-    ctx.setStandAlone(true)
-
     val path = workspaceInterface.compilerPathFor(loc.file)
     if (path == null) {
       return listOf()
@@ -286,7 +274,8 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         (if (it == appName + ".app") "" else "./") + it
       }
 
-      val rawResult = ctx.invokeStrategyCLI(lsp_complete_0_0.instance, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoList?
+      val strategy = lsp_complete_cached_0_0.instance
+      val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoList?
       completeDirty = false
 
       if (rawResult == null) {
@@ -299,6 +288,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       e.printStackTrace()
       return listOf()
     }
+  }
+
+  fun inlayHints(loc: StrategoLocation): List<StrategoInlayHint> {
+    println("inlayHints @ $loc")
+    return listOf()
   }
 
   fun semanticTokens(fileName: String): List<StrategoSemanticToken> {

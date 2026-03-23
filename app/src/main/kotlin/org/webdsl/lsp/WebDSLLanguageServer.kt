@@ -57,6 +57,7 @@ class WebDSLLanguageServer() : LanguageServer, LanguageClientProvider {
       }
       definitionProvider = Either.forLeft(true)
       referencesProvider = Either.forLeft(true)
+      inlayHintProvider = Either.forLeft(true)
       semanticTokensProvider = SemanticTokensWithRegistrationOptions().apply {
         legend = SemanticTokensLegend().apply {
           tokenTypes = WebDSLSemanticTokenType.entries.map { it.lspName }
