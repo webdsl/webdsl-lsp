@@ -21,6 +21,7 @@ import org.webdsl.lsp.utils.case
 import org.webdsl.lsp.utils.parseFileURI
 import org.webdsl.webdslc.Main
 import org.webdsl.webdslc.lsp_complete_0_0
+import org.webdsl.webdslc.lsp_find_references_0_0
 import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_parse_0_0
 import org.webdsl.webdslc.lsp_resolve_0_0
@@ -83,9 +84,7 @@ data class StrategoCompletion(val completion: String, val details: String) {
   fun toLspCompletion(): CompletionItem {
     return CompletionItem().apply {
       label = completion
-      labelDetails = CompletionItemLabelDetails().apply {
-        description = details
-      }
+      documentation = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(details)
     }
   }
 }
@@ -115,6 +114,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   var dirtyFiles: Set<String> = setOf() // list of files that had errors/warnings at last analysis run
   var resolveDirty: Boolean = true // whether any files have changed since last lsp-resolve
   var completeDirty: Boolean = true // whether any files have changed since last lsp-complete
+  // val ctx: Context = Main.init()
+
+  // init {
+  //   ctx.setStandAlone(true)
+  // }
 
   fun ensureBuiltins() {
     val builtinPath = workspaceInterface.compilerRoot.resolve(".servletapp/src-webdsl-template/built-in.app")
@@ -226,6 +230,40 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       println("Exception occured while resolving definition at $loc: $e")
       e.printStackTrace()
       return null
+    }
+  }
+
+  fun findReferences(loc: StrategoLocation): List<StrategoLocation> {
+    val ctx = Main.init()
+    ctx.setStandAlone(true)
+
+    val path = workspaceInterface.compilerPathFor(loc.file)
+    if (path == null) {
+      return listOf()
+    }
+
+    ensureBuiltins()
+
+    try {
+      val appName = getAppName().case({ return listOf() }, { it })
+
+      val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
+        // this might get fixed in webdslc at some point
+        (if (it == appName + ".app") "" else "./") + it
+      }
+
+      val strategy: Strategy = lsp_find_references_0_0.instance
+      val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoList?
+
+      if (rawResult == null) {
+        return listOf()
+      }
+
+      return rawResult.getAllSubterms().asList().map { parseAtAnnotation(it) }.filterNotNull()
+    } catch (e: StrategoExit) {
+      println("Exception occured while finding references at $loc: $e")
+      e.printStackTrace()
+      return listOf()
     }
   }
 

@@ -144,7 +144,10 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   }
 
   override fun references(params: ReferenceParams): CompletableFuture<List<Location>> {
-    return CompletableFuture.supplyAsync { listOf() }
+    val loc = StrategoLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
+    return CompletableFuture.supplyAsync {
+        compilerFacade.findReferences(loc).map { it.toLspLocation() }
+    }
   }
 
   override fun documentHighlight(position: DocumentHighlightParams): CompletableFuture<List<DocumentHighlight>> {
