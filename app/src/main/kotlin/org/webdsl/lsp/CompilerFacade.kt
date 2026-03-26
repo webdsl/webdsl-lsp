@@ -26,7 +26,7 @@ import org.webdsl.webdslc.lsp_complete_cached_0_0
 import org.webdsl.webdslc.lsp_find_references_cached_0_0
 import org.webdsl.webdslc.lsp_inlay_hints_cached_0_0
 import org.webdsl.webdslc.lsp_main_0_0
-import org.webdsl.webdslc.lsp_parse_0_0
+import org.webdsl.webdslc.lsp_parse_cached_0_0
 import org.webdsl.webdslc.lsp_resolve_cached_0_0
 import kotlin.io.copyTo
 import kotlin.io.path.Path
@@ -210,7 +210,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val appName = getAppName().case({ return null }, { it })
 
       val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
-        // this might get fixed in webdslc at some point
         (if (it == appName + ".app") "" else "./") + it
       }
 
@@ -243,7 +242,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val appName = getAppName().case({ return listOf() }, { it })
 
       val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
-        // this might get fixed in webdslc at some point
         (if (it == appName + ".app") "" else "./") + it
       }
 
@@ -275,7 +273,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val appName = getAppName().case({ return listOf() }, { it })
 
       val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
-        // this might get fixed in webdslc at some point
         (if (it == appName + ".app") "" else "./") + it
       }
 
@@ -307,7 +304,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val appName = getAppName().case({ return listOf() }, { it })
 
       val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
-        // this might get fixed in webdslc at some point
         (if (it == appName + ".app") "" else "./") + it
       }
 
@@ -326,9 +322,10 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     }
   }
 
+  @Synchronized
   fun semanticTokens(fileName: String): List<StrategoSemanticToken> {
-    val ctx: Context = Main.init()
-    ctx.setStandAlone(true)
+    // val ctx: Context = Main.init()
+    // ctx.setStandAlone(true)
 
     val path = workspaceInterface.compilerPathFor(fileName)
     if (path == null) {
@@ -336,9 +333,13 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
     }
 
     try {
-      val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString()
+      val appName = getAppName().case({ return listOf() }, { it })
+      val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
+        (if (it == appName + ".app") "" else "./") + it
+      }
 
-      val rawResult = ctx.invokeStrategyCLI(lsp_parse_0_0.instance, "Main", "-i", relativeFile, "--dir", workspaceInterface.compilerRoot.toString()) as StrategoList?
+      val strategy = lsp_parse_cached_0_0.instance
+      val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", relativeFile, "--dir", workspaceInterface.compilerRoot.toString()) as StrategoList?
 
       if (rawResult == null) {
         return listOf()
