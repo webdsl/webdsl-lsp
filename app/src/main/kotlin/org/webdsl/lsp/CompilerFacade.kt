@@ -126,17 +126,18 @@ fun newContext(): Context = Main.init().apply {
 
 class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   var dirtyFiles: Set<String> = setOf() // list of files that had errors/warnings at last analysis run
-  var resolveDirty: Boolean = true // whether any files have changed since last lsp-resolve
-  var completeDirty: Boolean = true // whether any files have changed since last lsp-complete
   var ctx: Context = newContext()
 
   fun ensureBuiltins() {
-    val builtinPath = workspaceInterface.compilerRoot.resolve(".servletapp/src-webdsl-template/built-in.app")
-    if (!builtinPath.exists()) {
-      builtinPath.apply {
+    val rootPaths = setOf(workspaceInterface.compilerRoot, workspaceInterface.clientRoot)
+    rootPaths.forEach {
+      val builtinPath = it.resolve(".servletapp/src-webdsl-template/built-in.app")
+      if (!builtinPath.exists()) {
         val builtin = object {}::class.java.getResourceAsStream("/webdsl/template-webdsl/built-in.app")?.bufferedReader()?.readText()!!
-        createParentDirectories()
-        writeText(builtin)
+        builtinPath.apply {
+          createParentDirectories()
+          writeText(builtin)
+        }
       }
     }
   }
