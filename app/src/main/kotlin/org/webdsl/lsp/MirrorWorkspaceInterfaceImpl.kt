@@ -14,6 +14,17 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
   init {
     // clientRoot.toFile().copyRecursively(compilerRoot.toFile(), true)
     recursivelyCopyFilesWithExtensions(clientRoot.toFile(), compilerRoot.toFile(), listOf("app", "ini"))
+    // java.io.File.deleteOnExit sadly doesn't delete recursively, this is one possible workaround.
+    // The other workaround would be to manually call deleteOnExit on all child files
+    // but this could prove tricky with files deleted during extension's runtime since files scheduled to be deleted on exit cannot be unscheduled
+    Runtime.getRuntime().addShutdownHook(
+      Thread {
+        // note: in development, if the server is spawned with `./gradlew run` and killed with ^C, this message might not get printed.
+        // The hook still triggers just fine though.
+        println("Cleaning up $compilerRoot")
+        compilerRoot.toFile().deleteRecursively()
+      },
+    )
     println("Created mapping $clientRoot -> $compilerRoot")
   }
 
