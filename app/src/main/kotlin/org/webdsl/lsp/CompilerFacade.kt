@@ -29,6 +29,7 @@ import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_parse_cached_0_0
 import org.webdsl.webdslc.lsp_resolve_cached_0_0
 import kotlin.io.copyTo
+import kotlin.io.NoSuchFileException
 import kotlin.io.path.Path
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.exists
@@ -144,12 +145,16 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
 
   fun getAppName(): Either<String, String> {
     // we don't get .ini files modification notifications (for now)
-    workspaceInterface.clientRoot.resolve("application.ini")
-      .toFile()
-      .copyTo(
-        workspaceInterface.compilerRoot.resolve("application.ini").toFile(),
-        overwrite = true,
-      )
+    try {
+      workspaceInterface.clientRoot.resolve("application.ini")
+        .toFile()
+        .copyTo(
+          workspaceInterface.compilerRoot.resolve("application.ini").toFile(),
+          overwrite = true,
+        )
+    } catch (e: NoSuchFileException) {
+      return Either.Left("Couldn't find application.ini")
+    }
 
     val appName = workspaceInterface.appName
     if (appName == null) {
