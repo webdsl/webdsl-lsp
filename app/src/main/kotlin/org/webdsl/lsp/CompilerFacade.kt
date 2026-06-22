@@ -2,13 +2,6 @@ package org.webdsl.lsp
 // TODO: figure out if there's a better way to synchronize everything than slapping `@Synchronize` on every compiler call...
 // ...but so far it works well enough :)
 
-import org.eclipse.lsp4j.CompletionItem
-import org.eclipse.lsp4j.Diagnostic
-import org.eclipse.lsp4j.DiagnosticSeverity
-import org.eclipse.lsp4j.InlayHint
-import org.eclipse.lsp4j.Location
-import org.eclipse.lsp4j.Position
-import org.eclipse.lsp4j.Range
 import org.spoofax.interpreter.terms.IStrategoTerm
 import org.spoofax.terms.StrategoAppl
 import org.spoofax.terms.StrategoInt
@@ -20,7 +13,6 @@ import org.strategoxt.lang.StrategoExit
 import org.strategoxt.lang.Strategy
 import org.webdsl.lsp.utils.Either
 import org.webdsl.lsp.utils.case
-import org.webdsl.lsp.utils.parseFileURI
 import org.webdsl.webdslc.Main
 import org.webdsl.webdslc.lsp_complete_cached_0_0
 import org.webdsl.webdslc.lsp_find_references_cached_0_0
@@ -28,8 +20,8 @@ import org.webdsl.webdslc.lsp_inlay_hints_cached_0_0
 import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_parse_cached_0_0
 import org.webdsl.webdslc.lsp_resolve_cached_0_0
-import kotlin.io.copyTo
 import kotlin.io.NoSuchFileException
+import kotlin.io.copyTo
 import kotlin.io.path.Path
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.exists
@@ -37,59 +29,23 @@ import kotlin.io.path.name
 import kotlin.io.path.writeText
 
 data class StrategoPosition(val line: Int, val column: Int) {
-  constructor(pos: Position) : this(pos.line + 1, pos.character + 1)
-
-  fun toLspPosition(): Position {
-    return Position(line - 1, column - 1)
-  }
+  companion object {}
 }
 
 data class StrategoLocation(val file: String, val start: StrategoPosition, val end: StrategoPosition) {
-  constructor(loc: Location) : this(parseFileURI(loc.uri)!!.path, StrategoPosition(loc.range.start), StrategoPosition(loc.range.end))
-
-  fun toLspLocation(): Location {
-    return Location(
-      "file://" + file,
-      Range(start.toLspPosition(), end.toLspPosition()),
-    )
-  }
-
-  val lspRange: Range
-    get() = Range(start.toLspPosition(), end.toLspPosition())
+  companion object {}
 }
 
 data class StrategoMessage(val relatedTerm: IStrategoTerm?, val messageText: String, val location: StrategoLocation) {
-  fun toDiagnostic(diagnosticSeverity: DiagnosticSeverity): Diagnostic {
-    return Diagnostic().apply {
-      severity = diagnosticSeverity
-      message = messageText
-      range = location.lspRange
-    }
-  }
+  companion object {}
 }
 
 data class LspAnalysisResult(val errors: List<StrategoMessage>, val warnings: List<StrategoMessage>, val additionalInfo: List<IStrategoTerm>, val clearedFiles: List<String>) {
-  fun toDiagnosticMap(): Map<String, List<Diagnostic>> {
-    val errors = (
-      errors.map { it.location.file to it.toDiagnostic(DiagnosticSeverity.Error) } +
-        warnings.map { it.location.file to it.toDiagnostic(DiagnosticSeverity.Warning) }
-      ).groupBy { it.first }.mapValues { it.value.map { it.second } }.toMutableMap()
-
-    for (c in clearedFiles) {
-      errors.putIfAbsent(c, listOf())
-    }
-
-    return errors.toMap()
-  }
+  companion object {}
 }
 
 data class StrategoCompletion(val completion: String, val details: String) {
-  fun toLspCompletion(): CompletionItem {
-    return CompletionItem().apply {
-      label = completion
-      documentation = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(details)
-    }
-  }
+  companion object {}
 }
 
 data class StrategoSemanticToken(val token: String, val position: StrategoPosition, val tokenType: WebDSLSemanticTokenType) {
@@ -114,11 +70,7 @@ data class StrategoSemanticToken(val token: String, val position: StrategoPositi
 }
 
 data class StrategoInlayHint(val position: StrategoPosition, val label: String) {
-  fun toLspInlayHint(): InlayHint {
-    return InlayHint(position.toLspPosition(), org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(label + ": ")).apply {
-      tooltip = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(this@StrategoInlayHint.label)
-    }
-  }
+  companion object {}
 }
 
 fun newContext(): Context = Main.init().apply {

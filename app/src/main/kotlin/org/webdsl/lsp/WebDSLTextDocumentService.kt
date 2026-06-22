@@ -9,6 +9,8 @@ import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionList
 import org.eclipse.lsp4j.CompletionParams
 import org.eclipse.lsp4j.DefinitionParams
+import org.eclipse.lsp4j.Diagnostic
+import org.eclipse.lsp4j.DiagnosticSeverity
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
 import org.eclipse.lsp4j.DidOpenTextDocumentParams
@@ -26,6 +28,7 @@ import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.LocationLink
+import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.ReferenceParams
@@ -42,13 +45,69 @@ import org.eclipse.lsp4j.services.TextDocumentService
 import org.webdsl.lsp.utils.parseFileURI
 import java.util.concurrent.CompletableFuture
 
+fun StrategoPosition.toLspPosition(): Position {
+  return Position(line - 1, column - 1)
+}
+
+fun StrategoPosition.Companion.fromLspPosition(pos: Position): StrategoPosition {
+  return StrategoPosition(pos.line + 1, pos.character + 1)
+}
+
+fun StrategoLocation.toLspLocation(): Location {
+  return Location(
+    "file://" + file,
+    Range(start.toLspPosition(), end.toLspPosition()),
+  )
+}
+
+fun StrategoLocation.Companion.fromLspLocation(loc: Location): StrategoLocation {
+  return StrategoLocation(parseFileURI(loc.uri)!!.path, StrategoPosition.fromLspPosition(loc.range.start), StrategoPosition.fromLspPosition(loc.range.end))
+}
+
+val StrategoLocation.lspRange: Range
+  get() = Range(start.toLspPosition(), end.toLspPosition())
+
+fun StrategoMessage.toDiagnostic(diagnosticSeverity: DiagnosticSeverity): Diagnostic {
+  return Diagnostic().apply {
+    severity = diagnosticSeverity
+    message = messageText
+    range = location.lspRange
+  }
+}
+
+fun LspAnalysisResult.toDiagnosticMap(): Map<String, List<Diagnostic>> {
+  val errors = (
+    errors.map { it.location.file to it.toDiagnostic(DiagnosticSeverity.Error) } +
+      warnings.map { it.location.file to it.toDiagnostic(DiagnosticSeverity.Warning) }
+    ).groupBy { it.first }.mapValues { it.value.map { it.second } }.toMutableMap()
+
+  for (c in clearedFiles) {
+    errors.putIfAbsent(c, listOf())
+  }
+
+  return errors.toMap()
+}
+
+fun StrategoCompletion.toLspCompletion(): CompletionItem {
+  return CompletionItem().apply {
+    label = completion
+    documentation = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(details)
+  }
+}
+
+fun StrategoInlayHint.toLspInlayHint(): InlayHint = run outer@{ // an ugly workaround to be able to access outer `this` inside of `apply`
+  InlayHint(position.toLspPosition(), org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(label + ": ")).apply {
+    tooltip = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(this@outer.label)
+  }
+}
+
 class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : TextDocumentService {
   val compilerFacade: CompilerFacade by lazy { // lazy cause workspaceInterface might be uninitialized
     CompilerFacade(clientProvider.workspaceInterface!!)
   }
 
   override fun completion(position: CompletionParams): CompletableFuture<Either<List<CompletionItem>, CompletionList>> {
-    val loc = StrategoLocation(Location(position.textDocument.uri, Range(position.position, position.position)))
+    val loc = StrategoLocation.fromLspLocation(Location(position.textDocument.uri, Range(position.position, position.position)))
     return CompletableFuture.supplyAsync {
       Either.forLeft(
         compilerFacade.complete(loc).map { it.toLspCompletion() },
@@ -61,7 +120,7 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   }
 
   override fun definition(params: DefinitionParams): CompletableFuture<Either<List<Location>, List<LocationLink>>> {
-    val loc = StrategoLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
+    val loc = StrategoLocation.fromLspLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
     return CompletableFuture.supplyAsync {
       Either.forLeft(
         compilerFacade.findDefinition(loc)?.let {
@@ -139,7 +198,7 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
   }
 
   override fun references(params: ReferenceParams): CompletableFuture<List<Location>> {
-    val loc = StrategoLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
+    val loc = StrategoLocation.fromLspLocation(Location(params.textDocument.uri, Range(params.position, params.position)))
     return CompletableFuture.supplyAsync {
       compilerFacade.findReferences(loc).map { it.toLspLocation() }
     }
@@ -174,8 +233,8 @@ class WebDSLTextDocumentService(val clientProvider: LanguageClientProvider) : Te
         return@supplyAsync listOf()
       }
 
-      val start = StrategoPosition(params.range.start)
-      val end = StrategoPosition(params.range.end)
+      val start = StrategoPosition.fromLspPosition(params.range.start)
+      val end = StrategoPosition.fromLspPosition(params.range.end)
 
       val loc = StrategoLocation(fileName, start, end)
 
