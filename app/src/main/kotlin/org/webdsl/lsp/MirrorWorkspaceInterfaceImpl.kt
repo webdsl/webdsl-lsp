@@ -12,7 +12,6 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
   override val compilerRoot = Files.createTempDirectory("webdsllsp")
 
   init {
-    // clientRoot.toFile().copyRecursively(compilerRoot.toFile(), true)
     recursivelyCopyFilesWithExtensions(clientRoot.toFile(), compilerRoot.toFile(), listOf("app", "ini"))
     // java.io.File.deleteOnExit sadly doesn't delete recursively, this is one possible workaround.
     // The other workaround would be to manually call deleteOnExit on all child files

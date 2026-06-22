@@ -158,13 +158,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
 
     val appName = workspaceInterface.appName
     if (appName == null) {
-      // return singleErrorResult(fileName, "Couldn't find \"appname\" property in application.ini")
       return Either.Left("Couldn't find \"appname\" property in application.ini")
     }
 
     val mainFilePath = workspaceInterface.compilerRoot.resolve(appName + ".app")
     if (!mainFilePath.exists()) {
-      // return singleErrorResult(fileName, "File $appName.app doesn't exist")
       return Either.Left("File $appName.app doesn't exist")
     }
 
@@ -221,7 +219,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val strategy: Strategy = lsp_resolve_cached_0_0.instance
       val rawResult = ctx.invokeStrategyCLI(strategy, "Main", "-i", appName + ".app", "--dir", workspaceInterface.compilerRoot.toString(), "-file", relativeFile, "-line", loc.start.line.toString(), "-column", loc.start.column.toString()) as StrategoAppl?
 
-      println("findDefinition raw result: $rawResult")
       if (rawResult == null) {
         return null
       }
@@ -329,9 +326,6 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
 
   @Synchronized
   fun semanticTokens(fileName: String): List<StrategoSemanticToken> {
-    // val ctx: Context = Main.init()
-    // ctx.setStandAlone(true)
-
     val path = workspaceInterface.compilerPathFor(fileName)
     if (path == null) {
       return listOf()
