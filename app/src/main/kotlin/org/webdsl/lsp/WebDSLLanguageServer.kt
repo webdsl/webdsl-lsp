@@ -1,3 +1,8 @@
+/**
+ * Main class representing the language server.
+ * Handles the initialization request and dispatches other events to
+ * text document service and workspace service.
+ */
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.CompletionItemOptions

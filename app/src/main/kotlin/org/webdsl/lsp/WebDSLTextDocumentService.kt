@@ -1,3 +1,6 @@
+/**
+ * Handles events related to working with code, e.g. go-to-reference, autocompletion etc.
+ */
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.CodeAction

@@ -1,3 +1,6 @@
+/**
+ * An interface for handling workspace events (i.e. modifications to files).
+ */
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent
@@ -27,6 +30,7 @@ interface WorkspaceInterface : java.io.Closeable {
   fun change(path: String, changes: List<TextDocumentContentChangeEvent>)
   fun open(path: String)
   fun close(path: String)
+  // Compiler might use different paths than the ones provided by language client, hence the following methods
   fun compilerPathFor(clientPath: String): Path?
   fun clientPathFor(compilerPath: String): Path?
 }

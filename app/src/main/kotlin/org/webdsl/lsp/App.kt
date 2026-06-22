@@ -1,3 +1,6 @@
+/**
+ * Main entrypoint of the WebDSL LSP server
+ */
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.launch.LSPLauncher

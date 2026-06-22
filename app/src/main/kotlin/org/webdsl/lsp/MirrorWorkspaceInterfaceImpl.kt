@@ -1,3 +1,10 @@
+/**
+ * Currently the only implementation of WorkspaceInterface.
+ * Works by creating a copy of the whole WebDSL project in a temp directory.
+ * This is required as we might want the LSP to analyse changes that are not yet saved to disk from IDEs point of view;
+ * the mirrored directory will write all changes to disk as soon as possible, hence making the analysis easy without
+ * complex changes being required in webdslc.
+ */
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent

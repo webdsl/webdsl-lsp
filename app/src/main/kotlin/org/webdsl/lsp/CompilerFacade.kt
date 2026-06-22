@@ -1,3 +1,7 @@
+/**
+ * Bindings for LSP-related strategies in webdslc.
+ * Mostly called from appropriate methods inf WebDSLTextDocumentService, serves as an additional abstraction layer.
+ */
 package org.webdsl.lsp
 // TODO: figure out if there's a better way to synchronize everything than slapping `@Synchronize` on every compiler call...
 // ...but so far it works well enough :)

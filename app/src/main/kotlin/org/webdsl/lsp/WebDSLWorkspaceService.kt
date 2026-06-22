@@ -1,3 +1,6 @@
+/**
+ * Handles events related to workspace, like files being created or deleted.
+ */
 package org.webdsl.lsp
 
 import org.eclipse.lsp4j.CreateFilesParams
