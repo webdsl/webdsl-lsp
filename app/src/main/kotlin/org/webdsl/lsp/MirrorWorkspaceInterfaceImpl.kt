@@ -57,6 +57,24 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
 
     val changedContent = changes.fold(Files.readString(p), ::applyChange)
     Files.writeString(p, changedContent)
+
+    deleteParseCacheEntriesFor(p)
+  }
+
+  private fun deleteParseCacheEntriesFor(compilerPath: java.nio.file.Path) {
+    val relative = compilerPath.relativeTo(compilerRoot)
+    val name = relative.fileName.toString()
+    val cacheDir = cacheDirFor(relative.parent)
+
+    cacheDir
+      ?.listFiles { file -> file.isFile && file.name.startsWith(name) }
+      ?.forEach { it.delete() }
+  }
+
+  private fun cacheDirFor(relativeDir: java.nio.file.Path?): java.io.File? {
+    val cacheDir = compilerRoot.resolve(".webdsl-parsecache")
+    val dir = if (relativeDir == null) cacheDir else cacheDir.resolve(relativeDir)
+    return if (Files.isDirectory(dir)) dir.toFile() else null
   }
 
   override fun open(path: String) {
