@@ -12,6 +12,7 @@ import java.nio.file.Path
 interface WorkspaceInterface : java.io.Closeable {
   val clientRoot: Path
   val compilerRoot: Path
+  val contentRevision: Long
   val appConfig: WebDSLAppConfig?
     get() {
       return try {

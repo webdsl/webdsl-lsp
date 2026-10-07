@@ -24,6 +24,7 @@ import org.webdsl.webdslc.lsp_inlay_hints_cached_0_0
 import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_parse_cached_0_0
 import org.webdsl.webdslc.lsp_resolve_cached_0_0
+import java.io.IOException
 import kotlin.io.NoSuchFileException
 import kotlin.io.copyTo
 import kotlin.io.path.Path
@@ -81,9 +82,12 @@ fun newContext(): Context = Main.init().apply {
   setStandAlone(true)
 }
 
+private data class AnalysisSnapshot(val revision: Long, val result: LspAnalysisResult)
+
 class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   var dirtyFiles: Set<String> = setOf() // list of files that had errors/warnings at last analysis run
   var ctx: Context = newContext()
+  private var analysisSnapshot: AnalysisSnapshot? = null
 
   fun ensureBuiltins() {
     val rootPaths = setOf(workspaceInterface.compilerRoot, workspaceInterface.clientRoot)
@@ -127,12 +131,17 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
 
   @Synchronized
   fun analyse(fileName: String): LspAnalysisResult {
-    ctx = newContext()
-
     val path = workspaceInterface.compilerPathFor(fileName)
     if (path == null) {
       return LspAnalysisResult(listOf(), listOf(), listOf(), listOf())
     }
+
+    val revision = workspaceInterface.contentRevision
+    analysisSnapshot?.takeIf { it.revision == revision }?.let {
+      return it.result.copy(clearedFiles = listOf())
+    }
+
+    ctx = newContext()
 
     ensureBuiltins()
 
@@ -148,7 +157,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val cleared = dirtyFiles - newDirty
       dirtyFiles = newDirty
 
-      return LspAnalysisResult(errors, warnings, additionalInfo.toList(), cleared.toList())
+      val result = LspAnalysisResult(errors, warnings, additionalInfo.toList(), cleared.toList())
+      if (workspaceInterface.contentRevision == revision) {
+        analysisSnapshot = AnalysisSnapshot(revision, result)
+      }
+      return result
     } catch (e: StrategoExit) {
       println("Exception occured while analysing file $fileName: $e")
       e.printStackTrace()

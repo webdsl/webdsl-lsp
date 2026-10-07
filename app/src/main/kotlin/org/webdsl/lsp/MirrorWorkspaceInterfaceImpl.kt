@@ -11,12 +11,16 @@ import org.eclipse.lsp4j.TextDocumentContentChangeEvent
 import org.webdsl.lsp.utils.applyChange
 import org.webdsl.lsp.utils.recursivelyCopyFilesWithExtensions
 import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.io.deleteRecursively
 import kotlin.io.path.Path
 import kotlin.io.path.relativeTo
 
 class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) : WorkspaceInterface {
   override val compilerRoot = Files.createTempDirectory("webdsllsp")
+  private val contentRevisionCounter = AtomicLong(0)
+  override val contentRevision: Long
+    get() = contentRevisionCounter.get()
 
   init {
     recursivelyCopyFilesWithExtensions(clientRoot.toFile(), compilerRoot.toFile(), listOf("app", "ini"))
@@ -35,16 +39,28 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
   }
 
   override fun create(path: String) {
-    compilerPathFor(path)?.toFile()?.createNewFile()
+    val created = compilerPathFor(path)?.toFile()?.createNewFile() ?: false
+    if (created) {
+      bumpContentRevision()
+    }
   }
 
   override fun delete(path: String) {
-    compilerPathFor(path)?.toFile()?.deleteRecursively()
+    val file = compilerPathFor(path)?.toFile() ?: return
+    if (!file.exists()) {
+      return
+    }
+    if (file.deleteRecursively()) {
+      bumpContentRevision()
+    }
   }
 
   override fun rename(oldPath: String, newPath: String) {
     compilerPathFor(newPath)?.toFile()?.let {
-      compilerPathFor(oldPath)?.toFile()?.renameTo(it)
+      val renamed = compilerPathFor(oldPath)?.toFile()?.renameTo(it) ?: false
+      if (renamed) {
+        bumpContentRevision()
+      }
     }
   }
 
@@ -55,10 +71,16 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
       return
     }
 
-    val changedContent = changes.fold(Files.readString(p), ::applyChange)
+    val originalContent = Files.readString(p)
+    val changedContent = changes.fold(originalContent, ::applyChange)
+    if (changedContent == originalContent) {
+      return
+    }
+
     Files.writeString(p, changedContent)
 
     deleteParseCacheEntriesFor(p)
+    bumpContentRevision()
   }
 
   private fun deleteParseCacheEntriesFor(compilerPath: java.nio.file.Path) {
@@ -75,6 +97,10 @@ class MirrorWorkspaceInterfaceImpl(override val clientRoot: java.nio.file.Path) 
     val cacheDir = compilerRoot.resolve(".webdsl-parsecache")
     val dir = if (relativeDir == null) cacheDir else cacheDir.resolve(relativeDir)
     return if (Files.isDirectory(dir)) dir.toFile() else null
+  }
+
+  private fun bumpContentRevision() {
+    contentRevisionCounter.incrementAndGet()
   }
 
   override fun open(path: String) {
