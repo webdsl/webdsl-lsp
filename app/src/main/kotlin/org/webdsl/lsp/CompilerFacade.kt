@@ -24,7 +24,6 @@ import org.webdsl.webdslc.lsp_inlay_hints_cached_0_0
 import org.webdsl.webdslc.lsp_main_0_0
 import org.webdsl.webdslc.lsp_parse_cached_0_0
 import org.webdsl.webdslc.lsp_resolve_cached_0_0
-import java.io.IOException
 import kotlin.io.NoSuchFileException
 import kotlin.io.copyTo
 import kotlin.io.path.Path
