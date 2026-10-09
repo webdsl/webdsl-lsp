@@ -87,6 +87,8 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
   var dirtyFiles: Set<String> = setOf() // list of files that had errors/warnings at last analysis run
   var ctx: Context = newContext()
   private var analysisSnapshot: AnalysisSnapshot? = null
+  private var semanticTokensByFile: Map<String, List<StrategoSemanticToken>> = mapOf()
+  private var failedAnalysisRevision: Long? = null
 
   fun ensureBuiltins() {
     val rootPaths = setOf(workspaceInterface.compilerRoot, workspaceInterface.clientRoot)
@@ -159,11 +161,15 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       val result = LspAnalysisResult(errors, warnings, additionalInfo.toList(), cleared.toList())
       if (workspaceInterface.contentRevision == revision) {
         analysisSnapshot = AnalysisSnapshot(revision, result)
+        failedAnalysisRevision = null
       }
       return result
     } catch (e: StrategoExit) {
       println("Exception occured while analysing file $fileName: $e")
       e.printStackTrace()
+      if (workspaceInterface.contentRevision == revision) {
+        failedAnalysisRevision = revision
+      }
       return singleErrorResult(fileName, "Parse Error")
     }
   }
@@ -299,6 +305,11 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
       return listOf()
     }
 
+    val revision = workspaceInterface.contentRevision
+    if (failedAnalysisRevision == revision) {
+      return semanticTokensByFile.get(fileName) ?: listOf()
+    }
+
     try {
       val appName = getAppName().case({ return listOf() }, { it })
       val relativeFile = workspaceInterface.compilerRoot.relativize(path).toString().let {
@@ -312,7 +323,10 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
         return listOf()
       }
 
-      return rawResult.getAllSubterms().asList().map { parseSemanticToken(it) }
+      val tokens = rawResult.getAllSubterms().asList().map { parseSemanticToken(it) }
+      semanticTokensByFile = semanticTokensByFile + (fileName to tokens)
+      
+      return tokens
     } catch (e: StrategoExit) {
       println("Exception occured while parsing $fileName: $e")
       e.printStackTrace()
