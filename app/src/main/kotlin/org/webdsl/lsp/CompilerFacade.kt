@@ -325,7 +325,7 @@ class CompilerFacade(val workspaceInterface: WorkspaceInterface) {
 
       val tokens = rawResult.getAllSubterms().asList().map { parseSemanticToken(it) }
       semanticTokensByFile = semanticTokensByFile + (fileName to tokens)
-      
+
       return tokens
     } catch (e: StrategoExit) {
       println("Exception occured while parsing $fileName: $e")
